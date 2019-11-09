@@ -4,3 +4,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 README.md
+.gitignore
+.travis.yml
+appveyor.yml

@@ -27,14 +27,14 @@ before_install:
 #   - rlecuyer
 
 install:
-  - Rscript -e "install.packages(c('float','rlecuyer','pbdZMQ','pbdPROF','pbdMPI','data.table','stringi','magrittr','xgboost'), repos = 'https://cran.r-project.org/')"
+  - Rscript -e "install.packages(c('float','rlecuyer','pbdMPI','data.table','stringi','magrittr','xgboost'), repos = 'https://cran.r-project.org/')"
   - R CMD check ./pbdXGB_*.tar.gz --as-cran
   - cat ./pbdXGB.Rcheck/pbdXGB-Ex.Rout
   - cat ./pbdXGB.Rcheck/pbdXGB-Ex.timings
 
 script:
   - Rscript -e "sessionInfo()"
-  - R CMD INSTALL ./pbdXGB*.tar.gz
+  # - R CMD INSTALL ./pbdXGB*.tar.gz
 
 sudo: required
 dist: trusty

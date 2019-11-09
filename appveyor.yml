@@ -48,7 +48,7 @@ build_script:
   - travis-tool.sh install_deps
   - cd ..
   - R CMD build --no-build-vignettes --no-manual --no-resave-data pbdXGB
-  - R CMD INSTALL pbdXGB*.tar.gz
+  # - R CMD INSTALL pbdXGB*.tar.gz
   - R CMD check pbdXGB*.tar.gz --as-cran --no-manual --no-vignettes --no-clean
   - dir pbdXGB.Rcheck
   # - type pbdXGB.Rcheck\00check.log
