@@ -1,0 +1,45 @@
+language: r
+
+branches:
+  only:
+    - master
+
+r:
+  - release
+
+os:
+  - linux
+
+before_install:
+  - sudo apt-get update -q
+  - sudo apt-get install -y -q libopenmpi-dev openmpi-bin
+  - LD_PRELOAD=/usr/lib/openmpi/lib/libmpi.so
+  - mpiexec --version
+  - mpicc -showme:incdirs
+  - mpicc -showme:libdirs
+  - mpicc -showme:compile
+  - mpicc -showme:link
+  - mpiexec -np 2 hostname
+  - cd ../
+  - R CMD build --no-resave-data --no-manual --no-build-vignettes pbdXGB
+
+# r_packages:
+#   - rlecuyer
+
+install:
+  - Rscript -e "install.packages(c('float','rlecuyer','pbdZMQ','pbdPROF','pbdMPI','data.table','stringi','magrittr','xgboost'), repos = 'https://cran.r-project.org/')"
+  - R CMD check ./pbdXGB_*.tar.gz --as-cran
+  - cat ./pbdXGB.Rcheck/pbdXGB-Ex.Rout
+  - cat ./pbdXGB.Rcheck/pbdXGB-Ex.timings
+
+script:
+  - Rscript -e "sessionInfo()"
+  - R CMD INSTALL ./pbdXGB*.tar.gz
+
+sudo: required
+dist: trusty
+
+notifications:
+  email:
+    on_success: never
+    on_failure: never
