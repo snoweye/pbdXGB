@@ -1,0 +1,45 @@
+### Lastest load into a package.
+
+## Export Namespace does not use .First.lib() and .Last.lib(), but use
+## .onLoad() and .onUnload().
+
+## See "pbdBASE/R/zzz.r" and "pbdMPI/R/zzz.r.in" for details.
+
+.onLoad <- function(libname, pkgname){
+  if(! is.loaded("spmd_initialize", PACKAGE = "pbdMPI")){
+    library.dynam("pbdMPI", "pbdMPI", libname)
+    if(pbdMPI::comm.is.null(0L) == -1){
+      pbdMPI::init()
+    }
+  }
+
+  ### Load "libmpicxx.so" or "libmpi_cxx.so"
+  if("@ENABLE_MPI_CXX@" == "yes"){
+    if(exists(".__MPI_LIB__", envir = .GlobalEnv)){
+      mpi.libpath <- "@MPI_LIBPATH@"
+      mpi.libname.cxx <- "@MPI_LIBNAME_CXX@"
+      i.lib.cxx <- paste(mpi.libpath, "/", mpi.libname.cxx, sep = "")
+      try(dyn.load(i.lib.cxx, local = FALSE))
+    }
+  }
+
+  library.dynam("pbdXGB", pkgname, libname)
+  invisible()
+} # End of .onLoad().
+
+.onUnload <- function(libpath){
+  library.dynam.unload("pbdXGB", libpath)
+
+  ### Unload "libmpicxx.so" or "libmpi_cxx.so"
+  if("@ENABLE_MPI_CXX@" == "yes"){
+    if(exists(".__MPI_LIB__", envir = .GlobalEnv)){
+      mpi.libpath <- "@MPI_LIBPATH@"
+      mpi.libname.cxx <- "@MPI_LIBNAME_CXX@"
+      i.lib.cxx <- paste(mpi.libpath, "/", mpi.libname.cxx, sep = "")
+      try(dyn.unload(i.lib.cxx))
+    }
+  }
+
+  invisible()
+} # End of .onUnload().
+

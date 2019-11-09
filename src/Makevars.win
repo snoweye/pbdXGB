@@ -1,0 +1,52 @@
+### Rscript
+R_SCMD = ${R_HOME}/bin${R_ARCH_BIN}/Rscript -e
+
+### Get MPI information from "pbdMPI". Note that Windows uses different FLAGS.
+MPI_ROOT = $(shell ${R_SCMD} \
+  "library(pbdMPI);get.conf('MPI_ROOT','"${R_ARCH}"','pbdMPI')")
+MPI_INCLUDE = $(shell ${R_SCMD} \
+  "library(pbdMPI);get.conf('MPI_INCLUDE','"${R_ARCH}"','pbdMPI')")
+MPI_LIB = $(shell ${R_SCMD} \
+  "library(pbdMPI);get.conf('MPI_LIB','"${R_ARCH}"','pbdMPI')")
+
+
+# package root
+PKGROOT=.
+ENABLE_STD_THREAD=0
+# _*_ mode: Makefile; _*_
+
+CXX_STD = CXX11
+
+XGB_RFLAGS = -DXGBOOST_STRICT_R_MODE=1 -DDMLC_LOG_BEFORE_THROW=0\
+           -DDMLC_ENABLE_STD_THREAD=$(ENABLE_STD_THREAD) -DDMLC_DISABLE_STDIN=1\
+           -DDMLC_LOG_CUSTOMIZE=1 -DXGBOOST_CUSTOMIZE_LOGGER=1\
+           -DRABIT_CUSTOMIZE_MSG_ -DRABIT_STRICT_CXX98_\
+           -DPBDR_SKIP_MPICXX
+
+# disable the use of thread_local for 32 bit windows:
+ifeq ($(R_OSTYPE)$(WIN),windows)
+    XGB_RFLAGS += -DDMLC_CXX11_THREAD_LOCAL=0
+endif
+# $(foreach v, $(XGB_RFLAGS), $(warning $(v)))
+
+### Combine all found results.
+ifeq "$(WIN)" "64"
+  WIN_FLAGS = -DWIN -D_WIN64 -DMSMPI_NO_DEPRECATE_20
+else
+  WIN_FLAGS = -DWIN -DMSMPI_NO_DEPRECATE_20
+endif
+
+### Set PKG_*
+PKG_CPPFLAGS=  -I$(PKGROOT)/include -I$(PKGROOT)/dmlc-core/include -I$(PKGROOT)/rabit/include -I$(PKGROOT) $(XGB_RFLAGS) -I"$(MPI_INCLUDE)" $(WIN_FLAGS)
+PKG_CXXFLAGS= $(SHLIB_OPENMP_CXXFLAGS) $(SHLIB_PTHREAD_FLAGS)
+PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS) $(SHLIB_PTHREAD_FLAGS) "$(MPI_LIB)"
+OBJECTS= ./xgboost_R.o ./xgboost_custom.o ./xgboost_assert.o ./xgboost_rabit.o ./init.o\
+         $(PKGROOT)/amalgamation/xgboost-all0.o $(PKGROOT)/amalgamation/dmlc-minimum0.o\
+         $(PKGROOT)/rabit/src/engine_mpicc.o $(PKGROOT)/rabit/src/c_api.o
+
+### Start making here.
+all: $(SHLIB)
+	@$(CP) ../R/windows/zzz.r ../R/
+ 
+$(SHLIB): $(OBJECTS)
+

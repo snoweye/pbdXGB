@@ -1,0 +1,40 @@
+Package: pbdXGB
+Title: Programming with Big Data -- Extreme Gradient Boosting
+Version: 0.90.0.2
+Date: 2019-11-09
+Authors@R: c(
+  person("Drew", "Schmidt", role = "aut",
+         comment = "pbdXGB implementation"),
+  person("Wei-Chen", "Chen", role = c("aut", "cre"),
+         email = "wccsnow@gmail.com",
+         comment = "pbdXGB implementation"),
+  person("Tianqi", "Chen", role = c("aut"),
+         comment = "xgboost R implementation"),
+  person("xgboost R contributors", role = c("cph"),
+         comment = "some functions are modified from xgboost R package"),
+  person("XGBoost contributors", role = c("cph"),
+         comment = "base XGBoost implementation"),
+  person("R Core team", role = "ctb",
+         comment = "some functions are modified from R")
+  )
+Depends: R (>= 3.6.0), xgboost, pbdMPI
+Imports: Matrix, data.table, stringi, utils, stats, methods, magrittr
+LazyLoad: yes
+LazyData: yes
+Description: An pbdR <https://pbdr.org> interface to xgboost with MPI C library.
+        This package only retains main functions of xgboost but aims
+        for computing performance to obtain results using distributed
+        computation via pbdMPI. This package uses Single
+        Program/Multiple Data ('SPMD') parallel programming style that
+        is intended for batch parallel execution on clusters or HPC resources.
+SystemRequirements: OpenMPI (>= 1.5.4) on Solaris, Linux, Mac, and
+        FreeBSD. MS-MPI (Microsoft MPI v7.1 (SDK) and Microsoft HPC
+        Pack 2012 R2 MS-MPI Redistributable Package) on Windows.
+License: Apache License (== 2.0) | file LICENSE
+URL: http://r-pbd.org/
+BugReports: https://github.com/snoweye/pbdXGB/issues
+MailingList: Please send questions and comments regarding pbdR to
+        RBigData@gmail.com
+NeedsCompilation: yes
+Maintainer: Wei-Chen Chen <wccsnow@gmail.com>
+RoxygenNote: 6.1.1

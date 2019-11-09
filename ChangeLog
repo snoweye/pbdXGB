@@ -1,0 +1,27 @@
+
+======================= Log Before Release =====================================
+2019-11-08:
+  * Wrap original examples in SPMD via 'pbdMPI::mpiexec()'.
+  * Rename the package to 'pbdXGB'.
+
+2019-10-27:
+  * First try to build with MS-MPI which has MPI C library only.
+  * Test with Drew's 'kasaam' example via 'get.jid()'.
+  * Put MPI C++ library back as an option via puting '--enable-mpi-cxx'
+    in 'R CMD INSTALL --configure-args=...'.
+
+2019-10-15:
+  * First try to combine with MPI C library.
+  * Alter rabit MPI engine to get rid of MPI C++ library.
+  * Check with cop implementations for MPI_Datatype and MPI_Op.
+  * Fix typos.
+
+2019-09-xx:
+  * First try to combine xgboost with MPI using pbdMPI.
+  * Load 'libmpi_cxx.so' for OpenMPI from 'zzz.r'.
+
+2019-08-xx:
+  * Create 'xgboost.mpi' with core 'xgboost' functions only.
+  * Alter all '.Call(...)' to explicitly call the C/R API.
+  * Enable mpicxx in OpenMPI and MPICH3 and test with them.
+
