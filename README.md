@@ -93,7 +93,7 @@ pbdXGB requires
   - MS-MPI for Windows
 * pbdR/R packages:
   - pbdMPI
-  - xgboost and its dependent R packages
+  - xgboost
 
 
 
@@ -104,8 +104,8 @@ pbdXGB is authored and maintained by the pbdR core team:
 * Drew Schmidt
 
 With additional contributions from:
-* Tianqi Chen (xgboost R and C++ implementation)
-* xgboost R authors and contributors (some functions are modified from xgboost R package)
+* Tianqi Chen (xgboost implementation)
+* Tong He (xgboost implementation)
+* xgboost R authors and contributors (some functions are modified from xgboost package)
 * XGBoost contributors (base XGBoost implementation)
-* The R Core team (some functions are modified from the base packages)
-
+* The R Core team (some functions are modified from R)

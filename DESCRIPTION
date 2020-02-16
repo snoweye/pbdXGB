@@ -7,7 +7,7 @@ Authors@R: c(
          email = "wccsnow@gmail.com",
          comment = "pbdXGB and MPI C implementation"),
   person("Drew", "Schmidt", role = "aut",
-         comment = "pbdXGB examples and rabit implementation"),
+         comment = "pbdXGB examples and rabit C api"),
   person("Tianqi", "Chen", role = c("aut"),
          comment = "xgboost implementation"),
   person("Tong", "He", role = c("aut"),
