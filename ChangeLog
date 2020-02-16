@@ -1,5 +1,10 @@
 
 ======================= Log Before Release =====================================
+2020-02-15:
+  * Use new mpicc branch of rabit.
+  * Test examples with MS-MPI.
+  * R CMD check --as-cran
+
 2019-11-08:
   * Wrap original examples in SPMD via 'pbdMPI::mpiexec()'.
   * Rename the package to 'pbdXGB'.

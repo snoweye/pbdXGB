@@ -6,52 +6,41 @@
  *
  * \author Tianqi Chen
  *
- *   Altered by Wei-Chen Chen 2019 to get rid of MPI C++ calls and and
- *   supports for R, pbdMPI, and windows.
+ * \brief MPICXX would not be supported at all.
+ * \author Rewrited by WCC in MPICC.
  */
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_SECURE_NO_DEPRECATE
 #define NOMINMAX
 
-#ifndef OMPI_SKIP_MPICXX
-#define OMPI_SKIP_MPICXX
+/*!
+ * \brief Get rid of MPI C++ calls/libraries and add supports
+ *        for R, pbdMPI, and Windows.
+ */
+#ifndef PBDR_SKIP_MPICXX
+  #define PBDR_SKIP_MPICXX  //WCC Force to skip CXX from "mpi.h".
 #endif
-
 #ifndef MPICH_SKIP_MPICXX
-#define MPICH_SKIP_MPICXX
+  #define MPICH_SKIP_MPICXX
 #endif
-
+#ifndef OMPI_SKIP_MPICXX
+  #define OMPI_SKIP_MPICXX
+#endif
 #ifdef WIN
-#include <_mingw.h>
+  #include <_mingw.h>
 #endif
-
 #ifdef _WIN64
-#include <stdint.h>
+  #include <stdint.h>
+#endif
+#ifdef _HAVE_R_
+  #include <R.h>
+  #include <Rinternals.h>
 #endif
 
 #include <mpi.h>
-
 #include <cstdio>
-#include "../include/rabit/internal/engine.h"
-#include "../include/rabit/internal/utils.h"
-
-#include <R.h>
-#include <Rinternals.h>
-
-/*!
- * \brief TODO:
- *   Initial a right comm and change MPI_COMM_WORLD to the right comm.
- *   Other necessary global variables/pointers to go with the right comm is
- *   needed to be initialized as well.
- *   See "pbdMPI/src/spmd.c", "cop/src/utils.h", and "cop/src/cop_allreduce.c"
- *   for the right way of using MPI.
- *   Note: The default MPI_COMM_WORLD or MPI::COMM_WORLD is a bad idea and is
- *         not portable with other APIs and for further developments.
- *
- * \brief TODO:
- *   To avoid memory leak, it may need to set and free the datatype and
- *   the op before and after calls clearly.
- */
+#include "rabit/internal/engine.h"
+#include "rabit/internal/utils.h"
 
 namespace rabit {
 
@@ -66,16 +55,35 @@ class MPIEngine : public IEngine {
   MPIEngine(void) {
     version_number = 0;
   }
+  virtual void Allgather(void *sendrecvbuf_,
+                             size_t total_size,
+                             size_t slice_begin,
+                             size_t slice_end,
+                             size_t size_prev_slice,
+                             const char* _file,
+                             const int _line,
+                             const char* _caller) {
+    utils::Error("MPIEngine:: Allgather is not supported");
+  }
   virtual void Allreduce(void *sendrecvbuf_,
                          size_t type_nbytes,
                          size_t count,
                          ReduceFunction reducer,
                          PreprocFunction prepare_fun,
-                         void *prepare_arg) {
+                         void *prepare_arg,
+                         const char* _file,
+                         const int _line,
+                         const char* _caller) {
     utils::Error("MPIEngine:: Allreduce is not supported,"\
                  "use Allreduce_ instead");
   }
-  virtual void Broadcast(void *sendrecvbuf_, size_t size, int root) {
+  virtual int GetRingPrevRank(void) const {
+    utils::Error("MPIEngine:: GetRingPrevRank is not supported");
+    return -1;
+  }
+  virtual void Broadcast(void *sendrecvbuf_, size_t size, int root,
+    const char* _file, const int _line,
+    const char* _caller) {
     MPI_Bcast(sendrecvbuf_, size, MPI_CHAR, root, MPI_COMM_WORLD);
   }
   virtual void InitAfterException(void) {
@@ -97,15 +105,15 @@ class MPIEngine : public IEngine {
   }
   /*! \brief get rank of current node */
   virtual int GetRank(void) const {
-    int world_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-    return world_rank;
+    int comm_world_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &comm_world_rank);
+    return comm_world_rank;
   }
   /*! \brief get total number of */
   virtual int GetWorldSize(void) const {
-    int world_size;
-    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-    return world_size;
+    int comm_world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &comm_world_size);
+    return comm_world_size;
   }
   /*! \brief whether it is distributed */
   virtual bool IsDistributed(void) const {
@@ -139,18 +147,32 @@ bool Init(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
     return true;
   } catch (const std::exception& e) {
+#ifndef _HAVE_R_
+    fprintf(stderr, " failed in MPI Init %s\n", e.what());
+#else
     REprintf(" failed in MPI Init %s\n", e.what());
+#endif
     return false;
   }
 }
 /*! \brief finalize syncrhonization module */
 bool Finalize(void) {
-  try {
-    MPI_Finalize();
+  int flag;
+  MPI_Finalized(&flag);
+  if (!flag) {
+    try {
+      MPI_Finalize();
+      return true;
+    } catch (const std::exception& e) {
+#ifndef _HAVE_R_
+      fprintf(stderr, "failed in MPI shutdown %s\n", e.what());
+#else
+      REprintf("failed in MPI shutdown %s\n", e.what());
+#endif
+      return false;
+    }
+  } else {
     return true;
-  } catch (const std::exception& e) {
-    REprintf("failed in MPI shutdown %s\n", e.what());
-    return false;
   }
 }
 
@@ -161,6 +183,7 @@ IEngine *GetEngine(void) {
 // transform enum to MPI data type
 inline MPI_Datatype GetType(mpi::DataType dtype) {
   using namespace mpi;
+  //WCC Note MPI_* below are of type "MPI_Datatype" assuming in "C struct".
   switch (dtype) {
     case kChar: return MPI_CHAR;
     case kUChar: return MPI_BYTE;
@@ -180,6 +203,7 @@ inline MPI_Datatype GetType(mpi::DataType dtype) {
 inline MPI_Op GetOp(mpi::OpType otype) {
   using namespace mpi;
   switch (otype) {
+    //WCC Note MPI_* below are of type "MPI_Op" assuming in "C struct".
     case kMax: return MPI_MAX;
     case kMin: return MPI_MIN;
     case kSum: return MPI_SUM;
@@ -196,108 +220,98 @@ void Allreduce_(void *sendrecvbuf,
                 mpi::DataType dtype,
                 mpi::OpType op,
                 IEngine::PreprocFunction prepare_fun,
-                void *prepare_arg) {
+                void *prepare_arg,
+                const char* _file,
+                const int _line,
+                const char* _caller) {
   if (prepare_fun != NULL) prepare_fun(prepare_arg);
-  MPI_Allreduce(MPI_IN_PLACE, sendrecvbuf,
-                count, GetType(dtype), GetOp(op), MPI_COMM_WORLD);
+   MPI_Allreduce(MPI_IN_PLACE, sendrecvbuf,
+                 count, GetType(dtype), GetOp(op), MPI_COMM_WORLD);
 }
 
 // code for reduce handle
 ReduceHandle::ReduceHandle(void)
     : handle_(NULL), redfunc_(NULL), htype_(NULL) {
 }
-/*!
- * \brief Potential memory leaks may occur here.
- *   The incomplete solution below is one way to block error messages because
- *   MPI_Op_free() (i.e. op->Free()) and MPI_Type_free() (i.e. dtype->Free())
- *   are not allowed after MPI_Finalize().
- *   Note: The better solution is to call the destructor (or delete) for each
- *         reduce handler individually then call MPI_Finalize().
- */
 ReduceHandle::~ReduceHandle(void) {
   int flag;
   MPI_Finalized(&flag);
-  if (flag) {
+  if (!flag) {
     if (handle_ != NULL) {
-      MPI_Op *op = reinterpret_cast<MPI_Op*>(handle_);
-      // MPI_Op_free(op);  // This can not be called after MPI_FINALIZE.
+      MPI_Op_free((MPI_Op*) handle_);
+      free(handle_);
     }
     if (htype_ != NULL) {
-      MPI_Datatype *dtype = reinterpret_cast<MPI_Datatype*>(htype_);
-      // MPI_Type_free(dtype);  // This can not be called after MPI_FINALIZE.
-    }
-  } else {
-    // WCC: I doubt that this was ever safely called when MPI is not finalized.
-    if (handle_ != NULL) {
-      MPI_Op *op = reinterpret_cast<MPI_Op*>(handle_);
-      MPI_Op_free(op);
-    }
-    if (htype_ != NULL) {
-      MPI_Datatype *dtype = reinterpret_cast<MPI_Datatype*>(htype_);
-      MPI_Type_free(dtype);
+      MPI_Type_free((MPI_Datatype*) htype_);
+      free(htype_);
     }
   }
 }
-int ReduceHandle::TypeSize(const MPI_Datatype &dtype) {
-  int size;
-  MPI_Type_size(dtype, &size);
-  return size;
+int ReduceHandle::TypeSize(MPI_Datatype dtype) {
+  int dtype_size;
+  MPI_Type_size(dtype, &dtype_size);
+  return dtype_size;
 }
 void ReduceHandle::Init(IEngine::ReduceFunction redfunc, size_t type_nbytes) {
   utils::Assert(handle_ == NULL, "cannot initialize reduce handle twice");
   if (type_nbytes != 0) {
-    MPI_Datatype dtype;
+    MPI_Datatype *pbdr_mpi_dtype;
+    pbdr_mpi_dtype = (MPI_Datatype*) malloc(sizeof(MPI_Datatype));
     if (type_nbytes % 8 == 0) {
-      MPI_Type_contiguous(type_nbytes / sizeof(long), MPI_LONG, &dtype);
+      MPI_Type_contiguous(type_nbytes / sizeof(long), MPI_LONG, pbdr_mpi_dtype);
     } else if (type_nbytes % 4 == 0) {
-      MPI_Type_contiguous(type_nbytes / sizeof(int), MPI_INT, &dtype);
+      MPI_Type_contiguous(type_nbytes / sizeof(int), MPI_INT, pbdr_mpi_dtype);
     } else {
-      MPI_Type_contiguous(type_nbytes, MPI_CHAR, &dtype);
+      MPI_Type_contiguous(type_nbytes, MPI_CHAR, pbdr_mpi_dtype);
     }
-    MPI_Type_commit(&dtype);
+    MPI_Type_commit(pbdr_mpi_dtype);
     created_type_nbytes_ = type_nbytes;
-    htype_ = &dtype;  // This is global.
+    htype_ = pbdr_mpi_dtype;
+  } else {
+    if (htype_ != NULL) {
+      MPI_Type_free((MPI_Datatype*) htype_);
+      free(htype_);
+    }
   }
-  MPI_Op op;
-  MPI_Op_create((MPI_User_function*) redfunc, true, &op);
-  handle_ = &op;
+  MPI_Op *pbdr_mpi_op;
+  pbdr_mpi_op = (MPI_Op*) malloc(sizeof(MPI_Op));
+  MPI_Op_create((MPI_User_function*) redfunc, true, pbdr_mpi_op);
+  handle_ = pbdr_mpi_op;
 }
 void ReduceHandle::Allreduce(void *sendrecvbuf,
                              size_t type_nbytes, size_t count,
                              IEngine::PreprocFunction prepare_fun,
-                             void *prepare_arg) {
+                             void *prepare_arg,
+                             const char* _file,
+                             const int _line,
+                             const char* _caller) {
   utils::Assert(handle_ != NULL, "must initialize handle to call AllReduce");
-  MPI_Op *op = (MPI_Op*) handle_;
-  MPI_Datatype *dtype = (MPI_Datatype*) htype_;
-  /*!
-   * \brief I am not really sure why or when htype_ can be NULL and it is not
-   *   clear if type_nbytes can not be as in the call "the ReduceHandle::Init()".
-   *   Note: htype_ here can be NULL not "MPI_DATATYPE_NULL".
-   *
-   *   Further, when "created_type_nbytes_ != type_nbytes", it seems to be a
-   *   new "MPI_Datatype" is requested somewhere, so the original "MPI_Datatype"
-   *   where dtype points need to be free and/or reset to "MPI_DATATYPE_NULL"
-   *   by default. However, the dtype can be repointed/updated
-   *   to a new type later via MPI_Type_contiguous().
-   *
-   *   Note: I am also not sure that type_nbytes must be not 0 in this call(?)
-   */
-  if (created_type_nbytes_ != type_nbytes || htype_ == NULL || *dtype == MPI_DATATYPE_NULL) {
-    if (htype_ != NULL || *dtype != MPI_DATATYPE_NULL) {
-      MPI_Type_free(dtype);
-    }
-    if (type_nbytes % 8 == 0) {
-      MPI_Type_contiguous(type_nbytes / sizeof(long), MPI_LONG, dtype);
-    } else if (type_nbytes % 4 == 0) {
-      MPI_Type_contiguous(type_nbytes / sizeof(int), MPI_INT, dtype);
+  MPI_Datatype *pbdr_mpi_dtype;
+  MPI_Op *pbdr_mpi_op;
+  pbdr_mpi_dtype = (MPI_Datatype*) htype_;
+  pbdr_mpi_op = (MPI_Op*) handle_;
+  if (created_type_nbytes_ != type_nbytes || pbdr_mpi_dtype == NULL) {
+    if (pbdr_mpi_dtype == NULL) {
+      pbdr_mpi_dtype = (MPI_Datatype*) malloc(sizeof(MPI_Datatype));
     } else {
-      MPI_Type_contiguous(type_nbytes, MPI_CHAR, dtype);
+      //WCC Sets it to MPI_DATATYPE_NULL, but not free the struct, reuse it.
+      MPI_Type_free(pbdr_mpi_dtype);
+      // free(htype_);
     }
-    MPI_Type_commit(dtype);
+
+    if (type_nbytes % 8 == 0) {
+      MPI_Type_contiguous(type_nbytes / sizeof(long), MPI_LONG, pbdr_mpi_dtype);
+    } else if (type_nbytes % 4 == 0) {
+      MPI_Type_contiguous(type_nbytes / sizeof(int), MPI_INT, pbdr_mpi_dtype);
+    } else {
+      MPI_Type_contiguous(type_nbytes, MPI_CHAR, pbdr_mpi_dtype);
+    }
+    MPI_Type_commit(pbdr_mpi_dtype);
     created_type_nbytes_ = type_nbytes;
+    htype_ = pbdr_mpi_dtype;
   }
   if (prepare_fun != NULL) prepare_fun(prepare_arg);
-  MPI_Allreduce(MPI_IN_PLACE, sendrecvbuf, count, *dtype, *op, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, sendrecvbuf, count, *pbdr_mpi_dtype, *pbdr_mpi_op, MPI_COMM_WORLD);
 }
 }  // namespace engine
 }  // namespace rabit

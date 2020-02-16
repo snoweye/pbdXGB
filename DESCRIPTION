@@ -1,16 +1,16 @@
 Package: pbdXGB
 Title: Programming with Big Data -- Extreme Gradient Boosting
 Version: 0.90.0.2
-Date: 2019-11-09
+Date: 2020-02-15
 Authors@R: c(
-  person("Drew", "Schmidt", role = "aut",
-         comment = "pbdXGB implementation"),
   person("Wei-Chen", "Chen", role = c("aut", "cre"),
          email = "wccsnow@gmail.com",
-         comment = "pbdXGB implementation"),
+         comment = "pbdXGB and MPI C implementation"),
+  person("Drew", "Schmidt", role = "aut",
+         comment = "pbdXGB examples"),
   person("Tianqi", "Chen", role = c("aut"),
-         comment = "xgboost R implementation"),
-  person("xgboost R contributors", role = c("cph"),
+         comment = "xgboost R and C++ implementation"),
+  person("xgboost R authors and contributors", role = c("cph"),
          comment = "some functions are modified from xgboost R package"),
   person("XGBoost contributors", role = c("cph"),
          comment = "base XGBoost implementation"),
@@ -37,4 +37,4 @@ MailingList: Please send questions and comments regarding pbdR to
         RBigData@gmail.com
 NeedsCompilation: yes
 Maintainer: Wei-Chen Chen <wccsnow@gmail.com>
-RoxygenNote: 6.1.1
+RoxygenNote: 7.0.2

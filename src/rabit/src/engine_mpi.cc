@@ -11,8 +11,8 @@
 #define NOMINMAX
 #include <mpi.h>
 #include <cstdio>
-#include "../include/rabit/internal/engine.h"
-#include "../include/rabit/internal/utils.h"
+#include "rabit/internal/engine.h"
+#include "rabit/internal/utils.h"
 
 namespace rabit {
 
@@ -27,16 +27,35 @@ class MPIEngine : public IEngine {
   MPIEngine(void) {
     version_number = 0;
   }
+  virtual void Allgather(void *sendrecvbuf_,
+                             size_t total_size,
+                             size_t slice_begin,
+                             size_t slice_end,
+                             size_t size_prev_slice,
+                             const char* _file,
+                             const int _line,
+                             const char* _caller) {
+    utils::Error("MPIEngine:: Allgather is not supported");
+  }
   virtual void Allreduce(void *sendrecvbuf_,
                          size_t type_nbytes,
                          size_t count,
                          ReduceFunction reducer,
                          PreprocFunction prepare_fun,
-                         void *prepare_arg) {
+                         void *prepare_arg,
+                         const char* _file,
+                         const int _line,
+                         const char* _caller) {
     utils::Error("MPIEngine:: Allreduce is not supported,"\
                  "use Allreduce_ instead");
   }
-  virtual void Broadcast(void *sendrecvbuf_, size_t size, int root) {
+  virtual int GetRingPrevRank(void) const {
+    utils::Error("MPIEngine:: GetRingPrevRank is not supported");
+    return -1;
+  }
+  virtual void Broadcast(void *sendrecvbuf_, size_t size, int root,
+    const char* _file, const int _line,
+    const char* _caller) {
     MPI::COMM_WORLD.Bcast(sendrecvbuf_, size, MPI::CHAR, root);
   }
   virtual void InitAfterException(void) {
@@ -153,7 +172,10 @@ void Allreduce_(void *sendrecvbuf,
                 mpi::DataType dtype,
                 mpi::OpType op,
                 IEngine::PreprocFunction prepare_fun,
-                void *prepare_arg) {
+                void *prepare_arg,
+                const char* _file,
+                const int _line,
+                const char* _caller) {
   if (prepare_fun != NULL) prepare_fun(prepare_arg);
   MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, sendrecvbuf,
                             count, GetType(dtype), GetOp(op));
@@ -163,37 +185,16 @@ void Allreduce_(void *sendrecvbuf,
 ReduceHandle::ReduceHandle(void)
     : handle_(NULL), redfunc_(NULL), htype_(NULL) {
 }
-/*!
- * \brief Potential memory leaks may occur here.
- *   The solution below is one way to block error messages because
- *   MPI_Op_free() (i.e. op->Free()) and MPI_Type_free() (i.e. dtype->Free())
- *   are not allowed after MPI_Finalize().
- *   Note: The better solution is to call the destructor for
- *         each reduce handler individually who calls Init().
- *   Wei-Chen Chen 2019
- */
 ReduceHandle::~ReduceHandle(void) {
-  if (MPI::Is_finalized()) {
-    if (handle_ != NULL) {
-      MPI::Op *op = reinterpret_cast<MPI::Op*>(handle_);
-      delete op;
-    }
-    if (htype_ != NULL) {
-      MPI::Datatype *dtype = reinterpret_cast<MPI::Datatype*>(htype_);
-      delete dtype;
-    }
-  } else {
-    //WCC: I doubt that this part was ever called before MPI_Finalize().
-    if (handle_ != NULL) {
-      MPI::Op *op = reinterpret_cast<MPI::Op*>(handle_);
-      op->Free();
-      delete op;
-    }
-    if (htype_ != NULL) {
-      MPI::Datatype *dtype = reinterpret_cast<MPI::Datatype*>(htype_);
-      dtype->Free();
-      delete dtype;
-    }
+  if (handle_ != NULL) {
+    MPI::Op *op = reinterpret_cast<MPI::Op*>(handle_);
+    op->Free();
+    delete op;
+  }
+  if (htype_ != NULL) {
+    MPI::Datatype *dtype = reinterpret_cast<MPI::Datatype*>(htype_);
+    dtype->Free();
+    delete dtype;
   }
 }
 int ReduceHandle::TypeSize(const MPI::Datatype &dtype) {
@@ -222,7 +223,10 @@ void ReduceHandle::Init(IEngine::ReduceFunction redfunc, size_t type_nbytes) {
 void ReduceHandle::Allreduce(void *sendrecvbuf,
                              size_t type_nbytes, size_t count,
                              IEngine::PreprocFunction prepare_fun,
-                             void *prepare_arg) {
+                             void *prepare_arg,
+                             const char* _file,
+                             const int _line,
+                             const char* _caller) {
   utils::Assert(handle_ != NULL, "must initialize handle to call AllReduce");
   MPI::Op *op = reinterpret_cast<MPI::Op*>(handle_);
   MPI::Datatype *dtype = reinterpret_cast<MPI::Datatype*>(htype_);
@@ -241,6 +245,7 @@ void ReduceHandle::Allreduce(void *sendrecvbuf,
     }
     dtype->Commit();
     created_type_nbytes_ = type_nbytes;
+    htype_ = dtype;
   }
   if (prepare_fun != NULL) prepare_fun(prepare_arg);
   MPI::COMM_WORLD.Allreduce(MPI_IN_PLACE, sendrecvbuf, count, *dtype, *op);
