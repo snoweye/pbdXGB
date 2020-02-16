@@ -23,8 +23,13 @@ xgboost <- function(data = NULL, label = NULL, missing = NA, weight = NULL,
 
 
 # Various imports
+#' @importClassesFrom Matrix dgCMatrix
+#' @importFrom data.table rbindlist
 #' @importFrom stringi stri_split_regex
+#' @importFrom stats predict
 #'
+#' @import methods
 #' @import xgboost
+#' @import pbdMPI
 #'
 NULL

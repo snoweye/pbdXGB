@@ -20,7 +20,7 @@ Authors@R: c(
          comment = "some functions are modified from R")
   )
 Depends: R (>= 3.6.0), xgboost, pbdMPI
-Imports: Matrix, stringi, methods
+Imports: Matrix, stringi, methods, stats, data.table
 LazyLoad: yes
 LazyData: yes
 Description: An pbdR <https://pbdr.org> interface to xgboost with MPI C library.

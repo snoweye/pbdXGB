@@ -62,3 +62,11 @@ xgb.get.handle <- function(object) {
   handle
 }
 
+
+# Extract the number of trees in a model.
+# TODO: either add a getter to C-interface, or simply set an 'ntree' attribute after each iteration.
+# internal utility function
+xgb.ntree <- function(bst) {
+  length(grep('^booster', xgb.dump(bst)))
+}
+
