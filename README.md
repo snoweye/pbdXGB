@@ -22,42 +22,62 @@ suppressMessages(library(pbdMPI, quietly = TRUE))
 suppressMessages(library(pbdXGB, quietly = TRUE))
 init()
 
-### Commonly owned all data
-data(agaricus.train, package = "xgboost")
+### Commonly owned all training data
+data(agaricus.train, package = 'xgboost')
 train.all <- agaricus.train
 train.mat.all <- as.matrix(train.all$data)
 label.all <- train.all$label
-comm.print(nrow(train.mat.all))
 
-### Locally owned distributed data
-rows <- get.jid(nrow(train.mat.all))
-train.mat <- train.mat.all[rows, ]
-label <- label.all[rows]
-comm.print(nrow(train.mat), all.rank = TRUE)
+### Locally owned distributed training data
+train.rows <- get.jid(nrow(train.mat.all))
+train.mat <- train.mat.all[train.rows, ]
+label <- label.all[train.rows]
 
-### Get the model from distributed data
-mdl <- pbdXGB::xgboost(data = train.mat, label = label,
-                       max.depth = 2, eta = 1, nthread = 1,
-                       nrounds = 10, objective = "binary:logistic",
-                       verbose = 0)
-comm.print(mdl$evaluation_log$train_error)
+### Train the model from distributed training data
+mdl <- xgboost(data = train.mat, label = label,
+               max.depth = 2, eta = 1, nthread = 1,
+               nrounds = 10, objective = 'binary:logistic',
+               verbose = 0)
+comm.print(mdl$evaluation_log$train_error, all.rank = TRUE)
 
-### Check with xgboost::xgboost on all data
+### Train with xgboost::xgboost() on all training data
 if (comm.rank() == 0){
   mdl.all <- xgboost::xgboost(data = train.mat.all, label = label.all,
                               max.depth = 2, eta = 1, nthread = 2,
-                              nrounds = 10, objective = "binary:logistic",
+                              nrounds = 10, objective = 'binary:logistic',
                               verbose = 0)
   print(mdl.all$evaluation_log$train_error)
+}
+
+
+### Commonly owned all testing data
+data(agaricus.test, package = 'xgboost')
+test.all <- agaricus.test
+test.mat.all <- as.matrix(test.all$data)
+
+### Locally owned distributed testing data
+test.rows <- get.jid(nrow(test.mat.all))
+test.mat <- test.mat.all[test.rows, ]
+
+### Predict the distributed testing data
+pmdl <- predict(mdl, test.mat)
+comm.print(pmdl[1:5], all.rank = TRUE)  # First five only
+
+### Predict all testing data
+if(comm.rank() == 0){
+  pmdl.all <- predict(mdl.all, test.mat.all)
+
+  tmp.rows <- get.jid(nrow(test.mat.all), all = TRUE)
+  print(lapply(tmp.rows, function(x) pmdl.all[x[1:5]]))
 }
 
 finalize()
 ```
 
-Save the code in a file, say, `mpi_xgb.r` and run it in 4 processes via:
+Save the code in a file, say, `mpi_xgb.r` and run it in 2 processes via:
 
 ```
-mpirun -np 4 Rscript mpi_xgb.r
+mpirun -np 2 Rscript mpi_xgb.r
 ```
 
 

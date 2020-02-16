@@ -15,5 +15,7 @@ rm -rf ./src/*.dll
 rm -rf ./src/*.a
 rm -rf ./src/*.rc
 rm -rf ./src/*.rds
+rm -rf ./src/amalgamation/*.o
+rm -rf ./src/rabit/src/*.o
 rm -rf ./src-*
 rm -rf ./R/zzz.r

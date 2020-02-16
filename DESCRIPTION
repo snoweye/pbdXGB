@@ -7,18 +7,20 @@ Authors@R: c(
          email = "wccsnow@gmail.com",
          comment = "pbdXGB and MPI C implementation"),
   person("Drew", "Schmidt", role = "aut",
-         comment = "pbdXGB examples"),
+         comment = "pbdXGB examples and rabit implementation"),
   person("Tianqi", "Chen", role = c("aut"),
-         comment = "xgboost R and C++ implementation"),
+         comment = "xgboost implementation"),
+  person("Tong", "He", role = c("aut"),
+         comment = "xgboost implementation"),
   person("xgboost R authors and contributors", role = c("cph"),
-         comment = "some functions are modified from xgboost R package"),
+         comment = "some functions are modified from xgboost package"),
   person("XGBoost contributors", role = c("cph"),
          comment = "base XGBoost implementation"),
   person("R Core team", role = "ctb",
          comment = "some functions are modified from R")
   )
 Depends: R (>= 3.6.0), xgboost, pbdMPI
-Imports: Matrix, data.table, stringi, utils, stats, methods, magrittr
+Imports: Matrix, stringi, methods
 LazyLoad: yes
 LazyData: yes
 Description: An pbdR <https://pbdr.org> interface to xgboost with MPI C library.

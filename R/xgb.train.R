@@ -1,4 +1,4 @@
-#' eXtreme Gradient Boosting Training
+#' eXtreme Gradient Boosting Training via pbdMPI
 #'
 #' \code{xgb.train} is an advanced interface for training an xgboost model.
 #' The \code{xgboost} function is a simpler wrapper for \code{xgb.train}.
@@ -167,10 +167,6 @@
 #'   \item \code{nfeatures} number of features in training data.
 #' }
 #'
-#' @seealso
-#' \code{\link{callbacks}},
-#' \code{\link{predict.xgb.Booster}},
-#' \code{\link{xgb.cv}}
 #'
 #' @references
 #'
@@ -178,80 +174,66 @@
 #' 22nd SIGKDD Conference on Knowledge Discovery and Data Mining, 2016, \url{https://arxiv.org/abs/1603.02754}
 #'
 #' @examples
-#' ### Save code in a file "demo.r" and run with 1 processors by
-#' ### SHELL> mpiexec -np 1 Rscript demo.r
+#' ### Save code in a file "demo.r" and run with 2 processors by
+#' ### SHELL> mpiexec -np 2 Rscript demo.r
 #'
 #' spmd.code <- "
-#' ### Initial.
 #' suppressMessages(library(pbdMPI, quietly = TRUE))
 #' suppressMessages(library(pbdXGB, quietly = TRUE))
 #' init()
-#'
-#' ### Examples.
-#' data(agaricus.train, package='xgboost')
-#' data(agaricus.test, package='xgboost')
-#'
-#' dtrain <- xgb.DMatrix(agaricus.train$data, label = agaricus.train$label)
-#' dtest <- xgb.DMatrix(agaricus.test$data, label = agaricus.test$label)
-#' watchlist <- list(train = dtrain, eval = dtest)
-#'
-#' ## A simple xgb.train example:
-#' param <- list(max_depth = 2, eta = 1, verbose = 0, nthread = 2,
-#'               objective = 'binary:logistic', eval_metric = 'auc')
-#' bst <- xgb.train(param, dtrain, nrounds = 2, watchlist)
-#'
-#'
-#' ## An xgb.train example where custom objective and evaluation metric are used:
-#' logregobj <- function(preds, dtrain) {
-#'    labels <- getinfo(dtrain, 'label')
-#'    preds <- 1/(1 + exp(-preds))
-#'    grad <- preds - labels
-#'    hess <- preds * (1 - preds)
-#'    return(list(grad = grad, hess = hess))
+#' 
+#' ### Commonly owned all training data
+#' data(agaricus.train, package = 'xgboost')
+#' train.all <- agaricus.train
+#' train.mat.all <- as.matrix(train.all$data)
+#' label.all <- train.all$label
+#' 
+#' ### Locally owned distributed training data
+#' train.rows <- get.jid(nrow(train.mat.all))
+#' train.mat <- train.mat.all[train.rows, ]
+#' label <- label.all[train.rows]
+#' 
+#' ### Train the model from distributed training data
+#' mdl <- xgboost(data = train.mat, label = label,
+#'                max.depth = 2, eta = 1, nthread = 1,
+#'                nrounds = 10, objective = 'binary:logistic',
+#'                verbose = 0)
+#' comm.print(mdl$evaluation_log$train_error, all.rank = TRUE)
+#' 
+#' ### Train with xgboost::xgboost() on all training data
+#' if (comm.rank() == 0){
+#'   mdl.all <- xgboost::xgboost(data = train.mat.all, label = label.all,
+#'                               max.depth = 2, eta = 1, nthread = 2,
+#'                               nrounds = 10, objective = 'binary:logistic',
+#'                               verbose = 0)
+#'   print(mdl.all$evaluation_log$train_error)
 #' }
-#' evalerror <- function(preds, dtrain) {
-#'   labels <- getinfo(dtrain, 'label')
-#'   err <- as.numeric(sum(labels != (preds > 0)))/length(labels)
-#'   return(list(metric = 'error', value = err))
+#' 
+#' 
+#' ### Commonly owned all testing data
+#' data(agaricus.test, package = 'xgboost')
+#' test.all <- agaricus.test
+#' test.mat.all <- as.matrix(test.all$data)
+#' 
+#' ### Locally owned distributed testing data
+#' test.rows <- get.jid(nrow(test.mat.all))
+#' test.mat <- test.mat.all[test.rows, ]
+#' 
+#' ### Predict the distributed testing data
+#' pmdl <- predict(mdl, test.mat)
+#' comm.print(pmdl[1:5], all.rank = TRUE)  # First five only
+#' 
+#' ### Predict all testing data
+#' if(comm.rank() == 0){
+#'   pmdl.all <- predict(mdl.all, test.mat.all)
+#' 
+#'   tmp.rows <- get.jid(nrow(test.mat.all), all = TRUE)
+#'   print(lapply(tmp.rows, function(x) pmdl.all[x[1:5]]))
 #' }
-#'
-#' # These functions could be used by passing them either:
-#' #  as 'objective' and 'eval_metric' parameters in the params list:
-#' param <- list(max_depth = 2, eta = 1, verbose = 0, nthread = 2,
-#'               objective = logregobj, eval_metric = evalerror)
-#' bst <- xgb.train(param, dtrain, nrounds = 2, watchlist)
-#'
-#' #  or through the ... arguments:
-#' param <- list(max_depth = 2, eta = 1, verbose = 0, nthread = 2)
-#' bst <- xgb.train(param, dtrain, nrounds = 2, watchlist,
-#'                  objective = logregobj, eval_metric = evalerror)
-#'
-#' #  or as dedicated 'obj' and 'feval' parameters of xgb.train:
-#' bst <- xgb.train(param, dtrain, nrounds = 2, watchlist,
-#'                  obj = logregobj, feval = evalerror)
-#'
-#'
-#' ## An xgb.train example of using variable learning rates at each iteration:
-#' param <- list(max_depth = 2, eta = 1, verbose = 0, nthread = 2,
-#'               objective = 'binary:logistic', eval_metric = 'auc')
-#' my_etas <- list(eta = c(0.5, 0.1))
-#' bst <- xgb.train(param, dtrain, nrounds = 2, watchlist,
-#'                  callbacks = list(cb.reset.parameters(my_etas)))
-#'
-#' ## Early stopping:
-#' bst <- xgb.train(param, dtrain, nrounds = 25, watchlist,
-#'                  early_stopping_rounds = 3)
-#'
-#' ## An 'xgboost' interface example:
-#' bst <- xgboost(data = agaricus.train$data, label = agaricus.train$label,
-#'                max_depth = 2, eta = 1, nthread = 2, nrounds = 2,
-#'                objective = 'binary:logistic')
-#' pred <- predict(bst, agaricus.test$data)
-#'
-#' ### Finish.
+#' 
 #' finalize()
 #' "
-#' pbdMPI::execmpi(spmd.code = spmd.code, nranks = 1L)
+#' pbdMPI::execmpi(spmd.code = spmd.code, nranks = 2L)
 #'
 #' @rdname xgb.train
 #' @export
