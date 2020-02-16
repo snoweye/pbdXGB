@@ -1,5 +1,5 @@
 Package: pbdXGB
-Title: Programming with Big Data -- Extreme Gradient Boosting
+Title: Programming with Big Data -- Extreme Gradient Boosting for Distributed Learning
 Version: 0.90.0.2
 Date: 2020-02-15
 Authors@R: c(
